@@ -1,0 +1,95 @@
+please analyse the following error message and fix the error in my codebase.
+your response should include faulty code (if existing) and even the creation of missing files (if needed) to match the existings code purpose, style, functionality:
+
+./that.java:9: error: class SortContext is public, should be declared in a file named SortContext.java
+public class SortContext {
+       ^
+./SortContext.java:9: error: duplicate class: edu.mci.exam.task3.SortContext
+public class SortContext {
+       ^
+./Newspaper.java:7: error: cannot find symbol
+public class Newspaper implements NewsClient {
+                                  ^
+  symbol: class NewsClient
+./BubbleSortStrategy.java:4: error: cannot find symbol
+public class BubbleSortStrategy implements SortStrategy {
+                                           ^
+  symbol: class SortStrategy
+./that.java:10: error: cannot find symbol
+    private SortStrategy strategy;
+            ^
+  symbol:   class SortStrategy
+  location: class SortContext
+./that.java:12: error: cannot find symbol
+    public SortContext(SortStrategy strategy) {
+                       ^
+  symbol:   class SortStrategy
+  location: class SortContext
+./that.java:16: error: cannot find symbol
+    public void setStrategy(SortStrategy strategy) {
+                            ^
+  symbol:   class SortStrategy
+  location: class SortContext
+./InsertionSortStrategy.java:4: error: cannot find symbol
+public class InsertionSortStrategy implements SortStrategy {
+                                              ^
+  symbol: class SortStrategy
+./NewsAgency.java:14: error: cannot find symbol
+    private final List<NewsClient> clients = new ArrayList<>();
+                       ^
+  symbol:   class NewsClient
+  location: class NewsAgency
+./NewsAgency.java:17: error: cannot find symbol
+    public void registerClient(NewsClient client) {
+                               ^
+  symbol:   class NewsClient
+  location: class NewsAgency
+./NewsAgency.java:21: error: cannot find symbol
+    public void removeClient(NewsClient client) {
+                             ^
+  symbol:   class NewsClient
+  location: class NewsAgency
+./Website.java:7: error: cannot find symbol
+public class Website implements NewsClient {
+                                ^
+  symbol: class NewsClient
+./TVStation.java:7: error: cannot find symbol
+public class TVStation implements NewsClient {
+                                  ^
+  symbol: class NewsClient
+./NewsAgencyDemo.java:11: error: cannot find symbol
+        NewsClient krone = new Newspaper("Kronen Zeitung");
+        ^
+  symbol:   class NewsClient
+  location: class NewsAgencyDemo
+./NewsAgencyDemo.java:12: error: cannot find symbol
+        NewsClient orf = new TVStation("ORF");
+        ^
+  symbol:   class NewsClient
+  location: class NewsAgencyDemo
+./NewsAgencyDemo.java:13: error: cannot find symbol
+        NewsClient derStandard = new Website("derstandard.at");
+        ^
+  symbol:   class NewsClient
+  location: class NewsAgencyDemo
+./Newspaper.java:14: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./BubbleSortStrategy.java:5: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./InsertionSortStrategy.java:5: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./NewsAgency.java:31: error: cannot find symbol
+        for (NewsClient client : clients) {
+             ^
+  symbol:   class NewsClient
+  location: class NewsAgency
+./Website.java:14: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./TVStation.java:14: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+22 errors

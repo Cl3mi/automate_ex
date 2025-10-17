@@ -1,0 +1,74 @@
+❯ javac -d out $(find . -name "*.java")
+./that.java:9: error: class Sorter is public, should be declared in a file named Sorter.java
+public class Sorter {
+       ^
+./Client.java:7: error: cannot find symbol
+public class Client implements Observer {
+                               ^
+  symbol: class Observer
+./Sorter.java:10: error: cannot find symbol
+    private SortStrategy strategy;
+            ^
+  symbol:   class SortStrategy
+  location: class Sorter
+./Sorter.java:12: error: cannot find symbol
+    public Sorter(SortStrategy strategy) {
+                  ^
+  symbol:   class SortStrategy
+  location: class Sorter
+./Sorter.java:16: error: cannot find symbol
+    public void setStrategy(SortStrategy strategy) {
+                            ^
+  symbol:   class SortStrategy
+  location: class Sorter
+./BubbleSortStrategy.java:4: error: cannot find symbol
+public class BubbleSortStrategy implements SortStrategy {
+                                           ^
+  symbol: class SortStrategy
+./InsertionSortStrategy.java:4: error: cannot find symbol
+public class InsertionSortStrategy implements SortStrategy {
+                                              ^
+  symbol: class SortStrategy
+./NewsAgency.java:12: error: cannot find symbol
+public class NewsAgency implements Observable {
+                                   ^
+  symbol: class Observable
+./NewsAgency.java:13: error: cannot find symbol
+    private final List<Observer> observers = new ArrayList<>();
+                       ^
+  symbol:   class Observer
+  location: class NewsAgency
+./NewsAgency.java:22: error: cannot find symbol
+    public void attach(Observer o) {
+                       ^
+  symbol:   class Observer
+  location: class NewsAgency
+./NewsAgency.java:27: error: cannot find symbol
+    public void detach(Observer o) {
+                       ^
+  symbol:   class Observer
+  location: class NewsAgency
+./Client.java:14: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./BubbleSortStrategy.java:5: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./InsertionSortStrategy.java:5: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./NewsAgency.java:21: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./NewsAgency.java:26: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./NewsAgency.java:31: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+./NewsAgency.java:33: error: cannot find symbol
+        for (Observer o : observers) {
+             ^
+  symbol:   class Observer
+  location: class NewsAgency
+18 errors
