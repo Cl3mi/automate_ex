@@ -5,6 +5,7 @@ import requests
 from dotenv import load_dotenv
 from datetime import datetime
 from PyPDF2 import PdfReader
+import time
 
 # === Konfiguration laden ===
 load_dotenv()
@@ -75,27 +76,156 @@ def pdf_to_text(pdf_path):
     return text
 
 
+def _sanitize_filename(name: str) -> str:
+    # Erlaubt nur Buchstaben, Zahlen und Unterstrich (kein Leerzeichen, kein Sonderzeichen)
+    return re.sub(r'[^A-Za-z0-9_]', '_', name)
+
+def _extract_package_and_imports(block: str) -> str:
+    """Gibt die führenden package/import-Zeilen zurück (inkl. trailing newline)."""
+    lines = block.splitlines()
+    header_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("package ") or stripped.startswith("import "):
+            header_lines.append(line)
+        elif stripped == "":
+            # leere Zeile nach header: beibehalten und weitersuchen (macht header lesbarer)
+            if header_lines:
+                header_lines.append(line)
+            else:
+                # noch kein header, ignoriere leere Zeilen am Anfang
+                continue
+        else:
+            # erste "nicht package/import"-Zeile -> header endet
+            break
+    return ("\n".join(header_lines) + ("\n" if header_lines else ""))
+
+def _find_declarations_with_spans(block: str):
+    """
+    Findet top-level declarations (class/interface/enum/record) und liefert
+    tuples (kind, name, start_index_of_declaration).
+    """
+    pattern = re.compile(r'(?:^|\s)(public\s+|protected\s+|private\s+|static\s+|final\s+|abstract\s+|strictfp\s+)*'
+                         r'(class|interface|enum|record)\s+([A-Za-z_]\w*)', re.MULTILINE)
+    results = []
+    for m in pattern.finditer(block):
+        kind = m.group(2)
+        name = m.group(3)
+        start = m.start(2)  # Beginn bei 'class'/'interface'...
+        results.append((kind, name, start))
+    return results
+
+def _find_matching_brace_end(s: str, start_index_of_open_brace: int) -> int:
+    """
+    Scannt ab dem Index der öffnenden '{' und gibt Index der schließenden '}' zurück,
+    unter Berücksichtigung von Strings und Kommentaren (einfache, robuste Handhabung).
+    Falls kein match gefunden wird, gibt -1 zurück.
+    """
+    i = start_index_of_open_brace
+    depth = 0
+    length = len(s)
+    in_single_quote = False
+    in_double_quote = False
+    in_line_comment = False
+    in_block_comment = False
+    while i < length:
+        ch = s[i]
+        nx = s[i+1] if i+1 < length else ''
+        # Kommentarstart/ende
+        if not in_single_quote and not in_double_quote:
+            if not in_block_comment and ch == '/' and nx == '/':
+                in_line_comment = True
+                i += 1
+            elif not in_line_comment and ch == '/' and nx == '*':
+                in_block_comment = True
+                i += 1
+            elif in_line_comment and ch == '\n':
+                in_line_comment = False
+            elif in_block_comment and ch == '*' and nx == '/':
+                in_block_comment = False
+                i += 1
+                # continue scanning after closing
+        # Zitat-Handling (nur wenn nicht in Kommentaren)
+        if not in_line_comment and not in_block_comment:
+            if ch == '"' and not in_single_quote:
+                # prüfe Escape
+                escape_count = 0
+                j = i - 1
+                while j >= 0 and s[j] == '\\':
+                    escape_count += 1
+                    j -= 1
+                if escape_count % 2 == 0:
+                    in_double_quote = not in_double_quote
+            elif ch == "'" and not in_double_quote:
+                escape_count = 0
+                j = i - 1
+                while j >= 0 and s[j] == '\\':
+                    escape_count += 1
+                    j -= 1
+                if escape_count % 2 == 0:
+                    in_single_quote = not in_single_quote
+
+            # Klammerzählung nur wenn wir nicht in einem String sind
+            if not in_double_quote and not in_single_quote:
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return i  # Index der schließenden '}'
+        i += 1
+    return -1
+
 def save_java_files(reply, timestamp):
-    code_blocks = re.findall(r"```java(.*?)```", reply, re.DOTALL)
+    """
+    Parses AI output and writes .java files with proper filenames.
+    - Uses // File: ... if available
+    - Removes comments before class detection (so 'class' in comments won't trigger)
+    - Supports class, interface, enum, and record
+    """
+    code_blocks = re.findall(r"```(?:java)?(.*?)```", reply, re.DOTALL | re.IGNORECASE)
     if not code_blocks:
         print("⚠️ Keine Java-Codeblöcke im Output gefunden.")
         return
 
-    for block in code_blocks:
-        class_names = re.findall(
-            r"public\s+class\s+(\w+)|class\s+(\w+)", block)
-        if not class_names:
-            filename = os.path.join(OUTPUT_DIR, f"Unknown_{timestamp}.java")
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write(block.strip())
-            print(f"💾 Java-Datei erstellt (unbenannt): {filename}")
+    for idx, block in enumerate(code_blocks, start=1):
+        original_block = block.strip()
+        if not original_block:
+            continue
+
+        # --- 1️⃣ Look for explicit filename comment ---
+        file_comment_match = re.search(
+            r"//\s*File\s*:\s*([A-Za-z0-9_./\\-]+)", original_block, re.IGNORECASE
+        )
+        if file_comment_match:
+            raw_name = file_comment_match.group(1).strip()
+            # Add .java if not present
+            if not raw_name.lower().endswith(".java"):
+                raw_name += ".java"
+            filename = os.path.join(OUTPUT_DIR, os.path.basename(raw_name))
         else:
-            names = [name[0] or name[1] for name in class_names]
-            for name in names:
-                filename = os.path.join(OUTPUT_DIR, f"{name}.java")
-                with open(filename, "w", encoding="utf-8") as f:
-                    f.write(block.strip())
-                print(f"💾 Java-Datei erstellt: {filename}")
+            # --- 2️⃣ Remove comments before scanning for class/interface/enum/record ---
+            # Remove all // ... and /* ... */ comments
+            cleaned = re.sub(r"//.*?$|/\*.*?\*/", "", original_block, flags=re.DOTALL | re.MULTILINE)
+
+            # Search for top-level declarations
+            type_match = re.search(
+                r"\b(?:public\s+)?(class|interface|enum|record)\s+([A-Za-z_]\w*)",
+                cleaned,
+            )
+
+            if type_match:
+                typename = type_match.group(2)
+                filename = os.path.join(OUTPUT_DIR, f"{typename}.java")
+            else:
+                # --- 3️⃣ Fallback: Unknown file ---
+                filename = os.path.join(OUTPUT_DIR, f"Unknown_{timestamp}_{idx}.java")
+
+        # --- 4️⃣ Write file safely ---
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(original_block.strip() + "\n")
+
+        print(f"💾 Datei erstellt: {filename}")
 
 
 # === Hauptlogik ===
